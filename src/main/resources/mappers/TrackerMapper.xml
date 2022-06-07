@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+	
+<mapper namespace="TrackerMapper">
+
+	<insert id="insertUser">
+		INSERT INTO user (id, password, phone, find_id, nickname, insert_date, update_date)
+		VALUES (#{id}, #{password}, #{phone}, #{find_id}, #{nickname}, NOW(), NOW())
+	</insert>
+	
+	<select id="idCheck" resultType="int">
+		SELECT COUNT(*) FROM user
+		WHERE id = #{id}
+	</select>
+	
+	<select id="phoneCheck" resultType="int">
+		SELECT COUNT(*) FROM user
+		WHERE phone = #{phone}
+	</select>
+	
+	<select id="nicknameCheck" resultType="int">
+		SELECT COUNT(*) FROM user
+		WHERE nickname = #{nickname}
+	</select>
+	
+	<select id="loginUser" resultType="com.example.stocktracker.vo.UserVO">
+		SELECT * FROM user WHERE id = #{id} AND password = #{password}
+	</select>
+	
+	<select id="findId" resultType="com.example.stocktracker.vo.UserVO">
+		SELECT * FROM user WHERE phone = #{phone} AND find_id = #{find_id}
+	</select>
+	
+	<select id="findPassword" resultType="com.example.stocktracker.vo.UserVO">
+		SELECT * FROM user WHERE id = #{id} AND phone = #{phone} AND find_id = #{find_id}
+	</select>
+	
+	<select id="selectStockList" resultType="com.example.stocktracker.vo.MyStockListVO">
+	SELECT 
+		my_stock.uid my_stock_uid,
+		ticker.country, 
+		ticker.stock_name, 
+		ticker.ticker, 
+		stock.close_price, 
+		my_stock.blended_price, 
+		my_stock.holdings, 
+		(stock.close_price - my_stock.blended_price) profit, 
+		((stock.close_price / my_stock.blended_price) * 100 - 100) profit_rate
+	fROM 
+		ticker, my_stock, stock 
+	WHERE 
+		ticker.ticker = my_stock.ticker 
+	AND ticker.ticker = stock.ticker 
+	AND my_stock.cust_uid = #{cust_uid}
+	AND stock.insert_date = (SELECT MAX(stock.insert_date) FROM stock WHERE stock.ticker = my_stock.ticker)
+	</select>
+	
+	<select id="selectTradingList" resultType="com.example.stocktracker.vo.TradingVO">
+		SELECT
+			trading.uid, 
+			ticker.stock_name, 
+			my_stock.ticker, 
+			trading.trading, 
+			trading.order_price, 
+			trading.order_amount, 
+			trading.insert_date
+		FROM 
+			ticker, my_stock, trading
+		WHERE 
+			ticker.ticker = my_stock.ticker
+		AND my_stock.uid = trading.my_stock_uid
+		AND trading.my_stock_uid = #{my_stock_uid}
+		ORDER BY trading.insert_date
+	</select>
+	
+	<select id="getStockList" resultType="com.example.stocktracker.vo.TickerVO">
+		SELECT * FROM ticker
+	</select>
+	
+	<select id="getTicker" resultType="String">
+		SELECT ticker FROM ticker WHERE stock_name = #{stock_name}
+	</select>
+	
+	<select id="myStockCheck" resultType="com.example.stocktracker.vo.MyStockVO">
+		SELECT * FROM my_stock WHERE cust_uid = #{cust_uid} AND ticker = #{ticker}
+	</select>
+	
+	<insert id="putNewStock">
+		INSERT INTO my_stock (cust_uid, ticker, blended_price, holdings, buy_amount, insert_date, update_date) VALUES
+		(#{cust_uid}, #{ticker}, #{blended_price}, #{holdings}, #{buy_amount}, #{insert_date}, NOW())
+	</insert>
+	
+	<select id="getTickerConcat" resultType="String">
+		SELECT GROUP_CONCAT(ticker) ticker 
+		  FROM (
+			  SELECT ticker FROM ticker LIMIT #{i}, 500
+		  ) a 
+	</select>
+	
+	<select id="getTickerCount" resultType="int">
+		SELECT COUNT(1) FROM stock WHERE ticker = #{ticker} AND DATE_FORMAT(insert_date,'%Y-%m-%d') = DATE_FORMAT(NOW(),'%Y-%m-%d')
+	</select>
+	
+	<insert id="insertTicker">
+		INSERT INTO stock 
+		(ticker,insert_date,open_price,close_price,high_price,low_price)
+		VALUE 
+		(#{ticker},now(),#{open_price},#{close_price},#{high_price},#{low_price})
+	</insert>
+	
+	<update id="updateTicker">
+		UPDATE 
+			stock
+		SET 
+			open_price = #{open_price},
+			close_price = #{close_price},
+			high_price = #{high_price},
+			low_price = #{low_price}
+		WHERE 
+			ticker = 'ticker'
+			AND DATE_FORMAT(insert_date,'%Y-%m-%d') = DATE_FORMAT(NOW(),'%Y-%m-%d')		
+	</update>
+	
+	<insert id="insertTrading">
+		INSERT INTO trading 
+		VALUES (0, #{my_stock_uid}, #{trading}, #{order_price}, #{order_amount}, #{insert_date}, "Y")
+	</insert>
+	
+	<update id="updateBuyTrading">
+		UPDATE 
+			my_stock
+		SET
+			buy_amount = buy_amount + #{buy_amount}
+			,holdings = holdings + #{holdings}
+			,blended_price = if(holdings > 0, buy_amount / holdings,0)
+			,update_date = NOW()
+		WHERE
+			cust_uid = #{cust_uid}
+			AND ticker = #{ticker}	
+	</update>
+	
+	<update id="updateSellTrading">
+		UPDATE 
+			my_stock
+		SET
+			holdings = holdings - #{holdings}
+			,buy_amount = holdings * blended_price
+			,update_date = NOW()
+		WHERE
+			cust_uid = #{cust_uid}
+			AND ticker = #{ticker}	
+	</update>
+	
+	<select id="selectUser" resultType="com.example.stocktracker.vo.UserVO">
+		SELECT * FROM user WHERE uid = #{uid}
+	</select>
+	
+	<delete id="deleteUser">
+		DELETE FROM user WHERE uid = #{uid}
+	</delete>
+	
+	<update id="updateUser">
+		UPDATE
+			user
+		SET
+			password = #{password}
+			, phone = #{phone}
+			, find_id = #{find_id}
+			, nickname = #{nickname}
+			, update_date = NOW()
+		WHERE
+			uid = #{uid}
+	</update>
+	
+	<select id="findNickname" resultType="com.example.stocktracker.vo.UserVO">
+		SELECT * FROM user WHERE nickname = #{nickname}
+	</select>
+	
+	<select id="findFriend" resultType="com.example.stocktracker.vo.FriendVO">
+		SELECT * FROM friend
+		WHERE user_uid_front IN (#{uid}, #{friend_uid})
+		AND user_uid_back IN (#{friend_uid}, #{uid})
+	</select>
+	
+	<insert id="insertFriend">
+		INSERT INTO friend (user_uid_front, user_uid_back, insert_date)
+		VALUES (#{uid}, #{friend_uid}, NOW());
+	</insert>
+	
+	<select id="selectFriend" resultType="com.example.stocktracker.vo.FriendVO">
+		SELECT friend.*, user.uid friend_uid, user.nickname FROM friend, user
+		WHERE (friend.user_uid_front = #{uid} AND user.uid = friend.user_uid_back)
+		OR (friend.user_uid_back = #{uid} AND user.uid = friend.user_uid_front)
+	</select>
+	
+	<delete id="deleteUserFriend">
+		DELETE FROM friend 
+		WHERE user_uid_front = #{uid}
+		OR user_uid_back = #{uid}
+	</delete>
+	
+	<delete id="deleteUserMyStock">
+		DELETE FROM my_stock WHERE cust_uid = #{uid}
+	</delete>
+	
+	<delete id="deleteUserTrading">
+		DELETE FROM trading WHERE my_stock_uid IN (SELECT uid FROM my_stock WHERE cust_uid = #{uid})
+	</delete>
+
+	<delete id="deleteFriend">
+		DELETE FROM friend
+		WHERE user_uid_front IN (#{user_uid_front}, #{user_uid_back})
+		AND user_uid_back IN (#{user_uid_back}, #{user_uid_front})
+	</delete>
+	
+	<select id="selectTrading" resultType="com.example.stocktracker.vo.TradingInputVO">
+		SELECT * FROM trading WHERE uid = #{uid}
+	</select>
+	
+	<delete id="deleteTrading">
+		DELETE FROM trading WHERE uid = #{uid}
+	</delete>
+	
+	<update id="updateBuyMyStock">
+		UPDATE
+			my_stock
+		SET
+			holdings = holdings - #{order_amount}
+			, buy_amount = buy_amount - #{order_sum}
+			, blended_price = if(holdings > 0, buy_amount / holdings,0)
+			, update_date = NOW()
+		WHERE
+			uid = #{my_stock_uid}
+	</update>
+	
+	<update id="updateSellMyStock">
+		UPDATE
+			my_stock
+		SET
+			holdings = holdings + #{order_amount}
+			, buy_amount = blended_price * holdings
+			, update_date = NOW()
+		WHERE
+			uid = #{my_stock_uid}
+	</update>
+		
+	<select id="selectFriendStockList" resultType="com.example.stocktracker.vo.FriendStockListVO">
+		SELECT
+			ticker.stock_name
+			, stock.close_price
+			, my_stock.holdings
+		FROM
+			ticker, my_stock, stock
+		WHERE
+			ticker.ticker = my_stock.ticker
+		AND ticker.ticker = stock.ticker
+		AND my_stock.cust_uid = #{uid}
+		AND stock.insert_date = (SELECT MAX(stock.insert_date) FROM stock WHERE stock.ticker = my_stock.ticker)
+	</select>
+	
+	<select id="selectChartList" resultType="com.example.stocktracker.vo.ChartListVO">
+		SELECT
+			ticker.stock_name
+			, stock.close_price
+			, my_stock.holdings
+		FROM
+			ticker
+			, stock
+			, my_stock
+		WHERE
+			ticker.ticker = stock.ticker
+		AND	my_stock.cust_uid = #{cust_uid}
+		AND	my_stock.ticker = ticker.ticker
+		AND	stock.insert_date = (SELECT MAX(stock.insert_date) FROM stock WHERE stock.ticker = my_stock.ticker)
+	</select>
+	
+	<select id="selectUpdateStock" resultType="com.example.stocktracker.vo.MyStockListVO">
+		SELECT * FROM my_stock WHERE uid = #{my_stock_uid}
+	</select>
+	
+	<select id="selectTradingOne" resultType="com.example.stocktracker.vo.TradingInputVO">
+		SELECT 
+			trading.uid
+			, trading.my_stock_uid
+			, my_stock.ticker
+			, trading.order_price
+			, trading.order_amount
+			, (trading.order_price * trading.order_amount) order_sum
+			, trading.insert_date
+		FROM
+			trading, my_stock
+		WHERE
+			trading.my_stock_uid = my_stock.uid
+		AND 	trading.my_stock_uid = #{my_stock_uid}
+		AND	trading.insert_date = #{insert_date}
+	</select>
+</mapper>
